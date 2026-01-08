@@ -26,6 +26,34 @@ export default function Player({ track, onClose }: PlayerProps) {
     const [duration, setDuration] = useState(0);
     const [seeking, setSeeking] = useState(false);
 
+    // List of CORS-enabled Invidious instances for client-side fallback
+    const CORS_INSTANCES = [
+        'https://vid.puffyan.us',
+        'https://invidious.projectsegfau.lt',
+        'https://inv.tux.pizza',
+        'https://yewtu.be'
+    ];
+
+    const fetchVideoIdFromClient = async (query: string): Promise<string | null> => {
+        // Try each instance
+        for (const instance of CORS_INSTANCES) {
+            try {
+                const res = await fetch(`${instance}/api/v1/search?q=${encodeURIComponent(query)}&type=video`, {
+                    mode: 'cors'
+                });
+                if (res.ok) {
+                    const data = await res.json();
+                    if (Array.isArray(data) && data.length > 0) {
+                        return data[0].videoId;
+                    }
+                }
+            } catch (e) {
+                // Continue to next instance
+            }
+        }
+        return null;
+    };
+
     // Fetch Video ID
     useEffect(() => {
         let active = true;
@@ -37,13 +65,37 @@ export default function Player({ track, onClose }: PlayerProps) {
 
             try {
                 const query = `${track.artist.name} ${track.title} official audio`;
+
+                // 1. Try Server API (yt-search + Proxy)
                 const res = await fetch(`/api/youtube?q=${encodeURIComponent(query)}`);
-                const data = await res.json();
-                if (active && data.videoId) {
-                    setVideoId(data.videoId.trim());
+
+                if (res.ok) {
+                    const data = await res.json();
+                    if (active && data.videoId) {
+                        setVideoId(data.videoId.trim());
+                        setLoadingVideo(false);
+                        return;
+                    }
                 }
+
+                // 2. If Server fails, Try Client-Side (User IP)
+                console.warn('Server API failed to find video, attempting client-side fallback...');
+                const clientVideoId = await fetchVideoIdFromClient(query);
+
+                if (active && clientVideoId) {
+                    setVideoId(clientVideoId);
+                } else {
+                    console.error("All sources failed.");
+                }
+
             } catch (e) {
                 console.error("Failed to fetch video ID", e);
+                // Try client side on error too
+                if (active) {
+                    const query = `${track.artist.name} ${track.title} official audio`;
+                    const clientVideoId = await fetchVideoIdFromClient(query);
+                    if (clientVideoId) setVideoId(clientVideoId);
+                }
             } finally {
                 if (active) setLoadingVideo(false);
             }
