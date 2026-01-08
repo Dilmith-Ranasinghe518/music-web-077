@@ -26,25 +26,41 @@ export default function Player({ track, onClose }: PlayerProps) {
     const [duration, setDuration] = useState(0);
     const [seeking, setSeeking] = useState(false);
 
-    // List of CORS-enabled Invidious instances for client-side fallback
-    const CORS_INSTANCES = [
-        'https://vid.puffyan.us',
-        'https://invidious.projectsegfau.lt',
-        'https://inv.tux.pizza',
-        'https://yewtu.be'
+    // List of CORS-enabled instances (Invidious + Piped)
+    const FALLBACK_INSTANCES = [
+        { url: 'https://vid.puffyan.us', type: 'invidious' },
+        { url: 'https://pipedapi.kavin.rocks', type: 'piped' },
+        { url: 'https://invidious.projectsegfau.lt', type: 'invidious' },
+        { url: 'https://api.piped.ot.ax', type: 'piped' },
+        { url: 'https://inv.tux.pizza', type: 'invidious' },
+        { url: 'https://pipedapi.tokhmi.xyz', type: 'piped' },
     ];
 
     const fetchVideoIdFromClient = async (query: string): Promise<string | null> => {
         // Try each instance
-        for (const instance of CORS_INSTANCES) {
+        for (const instance of FALLBACK_INSTANCES) {
             try {
-                const res = await fetch(`${instance}/api/v1/search?q=${encodeURIComponent(query)}&type=video`, {
-                    mode: 'cors'
-                });
-                if (res.ok) {
-                    const data = await res.json();
-                    if (Array.isArray(data) && data.length > 0) {
-                        return data[0].videoId;
+                if (instance.type === 'invidious') {
+                    const res = await fetch(`${instance.url}/api/v1/search?q=${encodeURIComponent(query)}&type=video`, {
+                        mode: 'cors'
+                    });
+                    if (res.ok) {
+                        const data = await res.json();
+                        if (Array.isArray(data) && data.length > 0) {
+                            return data[0].videoId;
+                        }
+                    }
+                } else {
+                    // Piped
+                    const res = await fetch(`${instance.url}/search?q=${encodeURIComponent(query)}&filter=music_videos`, {
+                        // Piped usually supports CORS
+                    });
+                    if (res.ok) {
+                        const data = await res.json();
+                        if (data.items && data.items.length > 0) {
+                            const url = data.items[0].url;
+                            return url.split('v=')[1];
+                        }
                     }
                 }
             } catch (e) {
