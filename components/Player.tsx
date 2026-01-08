@@ -26,14 +26,12 @@ export default function Player({ track, onClose }: PlayerProps) {
     const [duration, setDuration] = useState(0);
     const [seeking, setSeeking] = useState(false);
 
-    // List of CORS-enabled instances (Invidious + Piped)
+    // List of Verified CORS-enabled instances (Strict subset for Client-Side)
     const FALLBACK_INSTANCES = [
-        { url: 'https://vid.puffyan.us', type: 'invidious' },
-        { url: 'https://pipedapi.kavin.rocks', type: 'piped' },
-        { url: 'https://invidious.projectsegfau.lt', type: 'invidious' },
+        { url: 'https://vid.puffyan.us', type: 'invidious' }, // High reliability
+        { url: 'https://pipedapi.kavin.rocks', type: 'piped' }, // High reliability
         { url: 'https://api.piped.ot.ax', type: 'piped' },
         { url: 'https://inv.tux.pizza', type: 'invidious' },
-        { url: 'https://pipedapi.tokhmi.xyz', type: 'piped' },
     ];
 
     const fetchVideoIdFromClient = async (query: string): Promise<string | null> => {
